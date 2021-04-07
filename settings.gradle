@@ -1,0 +1,4 @@
+include ':component-gradle-plugin'
+include ':component-annotation-compiler'
+include ':app'
+rootProject.name = "ComponentHepler"
