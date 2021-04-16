@@ -68,7 +68,7 @@ public class ComponentInitProcessor extends BaseProcessor {
                         .beginControlFlow("try")
                         .addStatement("$T obj = new $T()", initializatorTypeName, initializatorTypeName)
                         .beginControlFlow("if(obj instanceof $T)", iComponentClassName)
-                        .addStatement("(($T) obj).onInit()")
+                        .addStatement("(($T) obj).onInit()", iComponentClassName)
                         .endControlFlow()
                         .nextControlFlow("catch ($T e)", exceptionClassName)
                         .addStatement("e.printStackTrace()")
