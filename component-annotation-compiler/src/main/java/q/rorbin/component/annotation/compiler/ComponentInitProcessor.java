@@ -3,6 +3,7 @@ package q.rorbin.component.annotation.compiler;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.MethodSpec;
+import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 
 import java.io.IOException;
@@ -26,9 +27,9 @@ import q.rorbin.component.model.AnnotationEntity;
  */
 public class ComponentInitProcessor extends BaseProcessor {
     private final Class<ComponentInitializator> annotationClass = ComponentInitializator.class;
-    private final ClassName classClassName = ClassName.get(Class.class);
     private final ClassName exceptionClassName = ClassName.get(Exception.class);
     private final ClassName iComponentClassName = ClassName.get(IComponent.class);
+    private final ClassName keepClassName = ClassName.bestGuess("androidx.annotation.Keep");
 
     @Override
     protected Class<? extends Annotation>[] getSupportedAnnotations() {
@@ -56,15 +57,16 @@ public class ComponentInitProcessor extends BaseProcessor {
                 //create ComponentInitHelper.java
                 TypeSpec.Builder classBuilder = TypeSpec.classBuilder(ComponentConst.PREFIX + simpleName + ComponentConst.INITIALIZATOR_HEPLER_SUFFIX)
                         .addModifiers(Modifier.PUBLIC)
+                        .addAnnotation(keepClassName)
                         .addJavadoc("@author changhai qiu\n")
                         .addJavadoc("This class is automatically generated using the annotation processor." +
                                 " The code in the class cannot be modified. The detailed usage is as follows\n")
                         .addJavadoc("@see " + annotationClass.getName() + "\n");
                 //create constructor and invoke initializtor
+                TypeName initializatorTypeName = ClassName.get(annotation.getHostTypeMirror());
                 MethodSpec.Builder constructorBuilder = MethodSpec.constructorBuilder().addModifiers(Modifier.PUBLIC)
                         .beginControlFlow("try")
-                        .addStatement("$T clazz = $T.forName($S)", classClassName, classClassName, className)
-                        .addStatement("Object obj = clazz.newInstance()")
+                        .addStatement("$T obj = new $T()", initializatorTypeName, initializatorTypeName)
                         .beginControlFlow("if(obj instanceof $T)", iComponentClassName)
                         .addStatement("(($T) obj).onInit()")
                         .endControlFlow()

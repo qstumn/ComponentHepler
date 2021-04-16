@@ -34,8 +34,9 @@ public class ComponentServiceProcessor extends BaseProcessor {
     private final Class<ComponentService> annotationClass = ComponentService.class;
     private final ClassName iComponentServiceClassHelperClassName = ClassName.get(IComponentServiceHelper.class);
     private final ClassName ComponentServiceTypeClassName = ClassName.get(ComponentServiceType.class);
-    private final ClassName stringClassName = ClassName.get(String.class);
-    private final ParameterizedTypeName arrayListStringClassName = ParameterizedTypeName.get(ClassName.get(ArrayList.class), stringClassName);
+    private final ClassName classClassName = ClassName.get(Class.class);
+    private final ParameterizedTypeName arrayListClassClassName = ParameterizedTypeName.get(ClassName.get(ArrayList.class), classClassName);
+    private final ClassName keepClassName = ClassName.bestGuess("androidx.annotation.Keep");
 
     @Override
     protected Class<? extends Annotation>[] getSupportedAnnotations() {
@@ -72,6 +73,7 @@ public class ComponentServiceProcessor extends BaseProcessor {
                 String version = annotation.getElement().getAnnotation(annotationClass).version();
                 TypeSpec.Builder classBuilder = TypeSpec.classBuilder(ComponentConst.PREFIX + simpleName + ComponentConst.SERVICE_HEPLER_SUFFIX)
                         .addModifiers(Modifier.PUBLIC)
+                        .addAnnotation(keepClassName)
                         .addJavadoc("@author changhai qiu\n")
                         .addJavadoc("This class is automatically generated using the annotation processor." +
                                 " The code in the class cannot be modified. The detailed usage is as follows\n")
@@ -82,11 +84,15 @@ public class ComponentServiceProcessor extends BaseProcessor {
                         .addAnnotation(Override.class).addAnnotation(Nullable.class)
                         .addModifiers(Modifier.PUBLIC)
                         .returns(ComponentServiceTypeClassName)
-                        .addStatement("$T interfaces = new $T()", arrayListStringClassName, arrayListStringClassName);
+                        .addStatement("$T interfaces = new $T()", arrayListClassClassName, arrayListClassClassName);
                 for (TypeMirror mirror : mirrorList) {
-                    getServiceBuilder.addStatement("interfaces.add($S)", mirror.toString());
+                    String interfaceName = mirror.toString();
+                    if (interfaceName.contains("<")) {
+                        interfaceName = interfaceName.replaceAll("<.*>", "");
+                    }
+                    getServiceBuilder.addStatement("interfaces.add(" + interfaceName + ".class)");
                 }
-                getServiceBuilder.addStatement("return new $T($S, $S, interfaces)", ComponentServiceTypeClassName, name, version);
+                getServiceBuilder.addStatement("return new $T(" + name + ".class, $S, interfaces)", ComponentServiceTypeClassName, version);
                 classBuilder.addMethod(getServiceBuilder.build());
                 try {
                     JavaFile.builder(packageName, classBuilder.build()).build().writeTo(mFiler);

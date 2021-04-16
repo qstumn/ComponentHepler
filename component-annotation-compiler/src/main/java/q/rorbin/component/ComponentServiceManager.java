@@ -13,7 +13,7 @@ import q.rorbin.component.model.ComponentServiceType;
  */
 public class ComponentServiceManager {
 
-    private final Map<String, Map<String, String>> allServices = new HashMap<>();
+    private final Map<Class, Map<String, Class>> allServices = new HashMap<>();
 
     public ComponentServiceManager() {
         initServices();
@@ -34,27 +34,27 @@ public class ComponentServiceManager {
             return;
         }
         ComponentServiceType type = helper.getService();
-        for (String interfaceName : type.getInterfaces()) {
-            initService(interfaceName, type.getName(), type.getVersion());
+        for (Class interfaceClass : type.getInterfaces()) {
+            initService(interfaceClass, type.getName(), type.getVersion());
         }
     }
 
-    private void initService(String interfaceName, String serviceName, String version) {
-        Map<String, String> services = allServices.get(interfaceName);
+    private void initService(Class interfaceClass, Class serviceClass, String version) {
+        Map<String, Class> services = allServices.get(interfaceClass);
         if (services == null) {
             services = new HashMap<>();
-            allServices.put(interfaceName, services);
+            allServices.put(interfaceClass, services);
         }
-        String existVersionService = services.get(version);
+        Class existVersionService = services.get(version);
         if (existVersionService != null) {
-            throw new RuntimeException(interfaceName + "has been registered an implementaion with the same version, serviceImpl name is : " + existVersionService);
+            throw new RuntimeException(interfaceClass + "has been registered an implementaion with the same version, serviceImpl name is : " + existVersionService);
         }
-        services.put(version, serviceName);
+        services.put(version, serviceClass);
     }
 
     @Nullable
-    public String getService(String interfaceName, String version) {
-        Map<String, String> services = allServices.get(interfaceName);
+    public Class getService(Class interfaceClass, String version) {
+        Map<String, Class> services = allServices.get(interfaceClass);
         if (services == null) {
             return null;
         }

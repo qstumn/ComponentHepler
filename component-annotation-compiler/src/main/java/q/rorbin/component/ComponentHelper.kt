@@ -8,8 +8,8 @@ import java.lang.RuntimeException
  */
 object ComponentHelper {
 
-    private val serviceManager by lazy { ComponentServiceManager() }
-    private val serviceCache by lazy { mutableMapOf<String, MutableMap<String, Any>>() }
+    private val serviceManager by lazy(LazyThreadSafetyMode.SYNCHRONIZED) { ComponentServiceManager() }
+    private val serviceCache by lazy(LazyThreadSafetyMode.SYNCHRONIZED) { mutableMapOf<String, MutableMap<String, Any>>() }
 
     fun init() {
         ComponentInitializatorManager().invokeAllComponentInitializator()
@@ -22,18 +22,22 @@ object ComponentHelper {
     fun <I> createComponentService(serviceInterface: Class<I>, version: String = "main"): I {
         val exists = serviceCache.getOrPut(serviceInterface.name, { mutableMapOf() })
         var service = exists[version] as? I
-        if (service != null) {
-            return service
+        if (service == null) {
+            synchronized(serviceManager) {
+                if (service == null) {
+                    val serviceImpl = serviceManager.getService(serviceInterface, version)
+                        ?.runCatching { this.newInstance() as? I }
+                        ?.getOrNull()
+                        ?: throw RuntimeException("${serviceInterface.name} implementation class not found")
+                    if (serviceImpl is IComponent) {
+                        serviceImpl.onInit()
+                    }
+                    exists[version] = serviceImpl as Any
+                    service = serviceImpl
+                }
+            }
         }
-        service = serviceManager.getService(serviceInterface.name, version)
-            ?.runCatching { Class.forName(this).newInstance() as? I }
-            ?.getOrNull()
-            ?: throw RuntimeException("${serviceInterface.name} implementation class not found")
-        if (service is IComponent) {
-            service.onInit()
-        }
-        exists[version] = service as Any
-        return service
+        return service!!
     }
 }
 
