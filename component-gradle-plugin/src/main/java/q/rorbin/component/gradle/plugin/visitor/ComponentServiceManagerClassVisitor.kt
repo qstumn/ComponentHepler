@@ -18,34 +18,29 @@ class ComponentServiceManagerClassVisitor(
         descriptor: String,
         signature: String?,
         exceptions: Array<out String>?
-    ): MethodVisitor {
+    ): MethodVisitor? {
         var methodVisitor =
             classVisitor.visitMethod(access, name, descriptor, signature, exceptions)
         if (name == "initServices") {
-            methodVisitor = InitServicesMethodAdapter(methodVisitor, access, name, descriptor)
+            methodVisitor = InitServicesMethodAdapter(methodVisitor)
         }
         return methodVisitor
     }
 
-    private inner class InitServicesMethodAdapter(
-        mv: MethodVisitor,
-        access: Int,
-        name: String?,
-        desc: String?
-    ) : AdviceAdapter(Opcodes.ASM5, mv, access, name, desc) {
-
-        override fun onMethodEnter() {
-            super.onMethodEnter()
+    private inner class InitServicesMethodAdapter(val visitor: MethodVisitor) :
+        MethodVisitor(Opcodes.ASM5) {
+        override fun visitCode() {
             for (helper in helpers) {
-                mv.visitVarInsn(Opcodes.ALOAD, 0)
-                mv.visitLdcInsn(helper)
-                mv.visitMethodInsn(
+                visitor.visitVarInsn(Opcodes.ALOAD, 0)
+                visitor.visitLdcInsn(helper)
+                visitor.visitMethodInsn(
                     Opcodes.INVOKESPECIAL, Type.getInternalName(
                         ComponentServiceManager::class.java
                     ),
                     "initServiceByHelper", "(Ljava/lang/String;)V", false
                 )
             }
+            visitor.visitInsn(Opcodes.RETURN)
         }
     }
 }

@@ -2,6 +2,7 @@ plugins {
     id 'java-library'
     id 'kotlin'
     id 'com.github.dcendents.android-maven'
+//    id 'maven'
 }
 group = 'com.github.qstumn'
 
@@ -15,6 +16,7 @@ dependencies {
     implementation "com.android.tools.build:gradle:4.1.2"
     implementation gradleApi()
     implementation project(":component-annotation-compiler")
+//    implementation 'com.github.qstumn.ComponentHepler:component-annotation-compiler:1.1.0'
 }
 task sourceJar(type: Jar) {
     classifier = 'sources'
@@ -26,3 +28,20 @@ artifacts {
 tasks.withType(JavaCompile) {
     options.encoding = "UTF-8"
 }
+
+//uploadArchives {
+//    repositories {
+//        mavenDeployer {
+//            repository(url: 'file://' + new File(System.getProperty('user.home'), '.m2/repository').absolutePath)
+//
+//            pom.project {
+//                version '1.1.0-dev5'
+//                artifactId 'component-gradle-plugin'
+//                groupId 'com.github.qstumn.dev.ComponentHepler'
+//                packaging = 'jar'
+//                description = 'component-gradle-plugin'
+//            }
+//        }
+//
+//    }
+//}

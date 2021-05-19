@@ -7,33 +7,42 @@ import q.rorbin.component.ComponentInitializatorManager
 /**
  * @author changhai.qiu
  */
-class ComponentInitializatorManagerClassVisitor(private val classVisitor: ClassVisitor, private val helpers: MutableList<String>) : ClassVisitor(Opcodes.ASM5, classVisitor) {
+class ComponentInitializatorManagerClassVisitor(
+    private val classVisitor: ClassVisitor,
+    private val helpers: MutableList<String>
+) : ClassVisitor(Opcodes.ASM5, classVisitor) {
 
     override fun visitMethod(
-            access: Int,
-            name: String,
-            descriptor: String,
-            signature: String?,
-            exceptions: Array<out String>?
+        access: Int,
+        name: String,
+        descriptor: String,
+        signature: String?,
+        exceptions: Array<out String>?
     ): MethodVisitor {
-        var methodVisitor = classVisitor.visitMethod(access, name, descriptor, signature, exceptions)
+        var methodVisitor =
+            classVisitor.visitMethod(access, name, descriptor, signature, exceptions)
         if (name == "addAllInitializator") {
-            methodVisitor = AddAllInitializatorMethodAdapter(methodVisitor, access, name, descriptor)
+            methodVisitor = AddAllInitializatorMethodAdapter(methodVisitor)
         }
         return methodVisitor
     }
 
-    private inner class AddAllInitializatorMethodAdapter(mv: MethodVisitor, access: Int, private val name: String?, desc: String?)
-        : AdviceAdapter(Opcodes.ASM5, mv, access, name, desc) {
+    private inner class AddAllInitializatorMethodAdapter(val visitor: MethodVisitor) :
+        MethodVisitor(Opcodes.ASM5) {
 
-        override fun onMethodEnter() {
-            super.onMethodEnter()
+        override fun visitCode() {
             for (helper in helpers) {
-                mv.visitVarInsn(Opcodes.ALOAD, 0)
-                mv.visitLdcInsn(helper)
-                mv.visitMethodInsn(INVOKESPECIAL, Type.getInternalName(ComponentInitializatorManager::class.java),
-                        "addInitializator", "(Ljava/lang/String;)V", false)
+                visitor.visitVarInsn(Opcodes.ALOAD, 0)
+                visitor.visitLdcInsn(helper)
+                visitor.visitMethodInsn(
+                    Opcodes.INVOKESPECIAL,
+                    Type.getInternalName(ComponentInitializatorManager::class.java),
+                    "addInitializator",
+                    "(Ljava/lang/String;)V",
+                    false
+                )
             }
+            visitor.visitInsn(Opcodes.RETURN)
         }
     }
 }

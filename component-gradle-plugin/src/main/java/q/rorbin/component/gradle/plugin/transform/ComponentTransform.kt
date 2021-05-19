@@ -1,9 +1,6 @@
 package q.rorbin.component.gradle.plugin.transform
 
-import com.android.build.api.transform.Format
-import com.android.build.api.transform.QualifiedContent
-import com.android.build.api.transform.Transform
-import com.android.build.api.transform.TransformInvocation
+import com.android.build.api.transform.*
 import com.android.utils.FileUtils
 import org.apache.commons.codec.digest.DigestUtils
 import q.rorbin.component.ComponentInitializatorManager
@@ -28,11 +25,12 @@ class ComponentTransform : Transform() {
         QualifiedContent.Scope.EXTERNAL_LIBRARIES
     )
 
-    override fun isIncremental(): Boolean = false
+    override fun isIncremental(): Boolean = true
 
     override fun transform(transformInvocation: TransformInvocation?) {
         super.transform(transformInvocation)
         transformInvocation ?: return
+
         val serviceHelpers = mutableListOf<String>()
         val initializatorHelpers = mutableListOf<String>()
         var serviceHelperManager: File? = null
@@ -40,12 +38,25 @@ class ComponentTransform : Transform() {
 
         val inputs = transformInvocation.inputs
         val outputProvider = transformInvocation.outputProvider
+
+        if (!transformInvocation.isIncremental) {
+            outputProvider.deleteAll()
+        }
+
         val servicePackage = "${ComponentService::class.java.`package`.name}."
         val initializatorPackage = "${ComponentInitializator::class.java.`package`.name}."
+
         inputs.forEach { input ->
             //遍历所有的文件夹收集serviceHelpers和initializatorHelpers
             input.directoryInputs.forEach { dirInput ->
-                dirInput.file.traverse(
+                val inputDir = dirInput.file
+                val destDir = outputProvider.getContentLocation(
+                    dirInput.name,
+                    dirInput.contentTypes,
+                    dirInput.scopes,
+                    Format.DIRECTORY
+                )
+                inputDir.traverse(
                     { file -> file.extension == "class" },
                     FileType.FILE
                 ) { file ->
@@ -57,23 +68,23 @@ class ComponentTransform : Transform() {
                         initializatorHelpers.add("$initializatorPackage$name")
                     }
                 }
-                val dest = outputProvider.getContentLocation(
-                    dirInput.name,
-                    dirInput.contentTypes,
-                    dirInput.scopes,
-                    Format.DIRECTORY
-                )
-                FileUtils.copyDirectory(dirInput.file, dest)
+                if (transformInvocation.isIncremental) {
+                    for ((file, status) in dirInput.changedFiles) {
+                        val destFile =
+                            File(destDir, FileUtils.relativePossiblyNonExistingPath(file, inputDir))
+                        when (status) {
+                            Status.ADDED, Status.CHANGED -> FileUtils.copyFile(file, destFile)
+                            Status.REMOVED -> FileUtils.delete(destFile)
+                        }
+                    }
+                } else {
+                    FileUtils.copyDirectory(inputDir, destDir)
+                }
             }
             //遍历所有的jar文件收集serviceHelpers和initializatorHelpers, 并记录当前serviceHelperManager或initializatorHelperManager是否在这个jar中
             input.jarInputs.forEach { jarInput ->
-                var jarName = jarInput.name
-                val md5 = DigestUtils.md5Hex(jarInput.file.absolutePath)
-                if (jarName.endsWith(".jar")) {
-                    jarName = jarName.substring(0, jarName.length - 4)
-                }
                 val dest = outputProvider.getContentLocation(
-                    jarName + md5,
+                    jarInput.name,
                     jarInput.contentTypes,
                     jarInput.scopes,
                     Format.JAR
@@ -103,7 +114,14 @@ class ComponentTransform : Transform() {
                         }
                     }
                 }
-                FileUtils.copyFile(jarInput.file, dest)
+                if (transformInvocation.isIncremental) {
+                    when (jarInput.status) {
+                        Status.ADDED, Status.CHANGED -> FileUtils.copyFile(jarInput.file, dest)
+                        Status.REMOVED -> FileUtils.delete(dest)
+                    }
+                } else {
+                    FileUtils.copyFile(jarInput.file, dest)
+                }
             }
         }
         println("serviceHelpers gather result : $serviceHelpers, serviceHelperManager : $serviceHelperManager")
